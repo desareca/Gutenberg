@@ -15,7 +15,7 @@ library(rvest)
 library(tidyverse)
 library(tools)
 library(tm)
-
+setwd("Web Scraping Books Spanish/")
 
 #----- Selección de libros (N° libro) en español -----
 
@@ -190,6 +190,9 @@ corpClean <- VCorpus(
 
 #----- Procesado de LoC class -----
 
+# Carga de diccionario
+G <- readRDS("Books Gutenberg Spanish.rds")
+
 # separación de items
 locClass <- G$`LoC Class` %>% 
    sapply(function(x){strsplit(x, split = " -- ") %>% unlist()})
@@ -220,13 +223,105 @@ dictClass <- data.frame(symbol = c(1:length(locClass)) %>%
                               }
                               return(t)
                            }) %>% sapply(pasteSent),
-                        stringsAsFactors = F)
+                        stringsAsFactors = F) %>% 
+   table() %>% as.data.frame(stringsAsFactors = F) %>% filter(Freq>0)
 
-dictClass$symbol %>% table() %>% barplot()
+dictClass %>% 
+   # filter(symbol!="PQ") %>% 
+   arrange(-Freq) %>% head(49) %>% 
+   ggplot(aes(x=reorder(description, Freq), y = log1p(Freq))) + 
+   geom_col(fill = "red", alpha = 0.7) +
+   geom_text(aes(x = description, label = Freq), hjust = -0.5, vjust = 0.4, size = 3)+
+   coord_flip()+
+   xlab("") + ylab("Log(Frequency + 1)") +
+   ggtitle("Cantidad de libros en español por categoría")
 
 
+#----- Procesado de Subject -----
+
+# Carga de diccionario
+G <- readRDS("Books Gutenberg Spanish.rds")
+
+# separación de items
+Subject <- G$Subject %>% 
+   sapply(function(x){strsplit(x, split = " -- ") %>% unlist()})
+
+# diccionario
+pasteSent <- function(x){
+   t <- c()
+   for (i in 1:length(x)) {
+      j = "; "
+      if(i == 1) {j = ""}
+      t <- paste(t, x[i], sep = j)
+   }
+   return(t)
+}
+dictSubject <- data.frame(description = c(1:length(Subject)) %>% 
+                             sapply(function(x) {
+                                t <- c()
+                                for (i in 1:length(Subject[[x]])) {
+                                   t <- c(t, (Subject[[x]][i])[[1]])
+                                   }
+                                return(t)
+                                }) %>% sapply(pasteSent),
+                          stringsAsFactors = F) %>% 
+   table() %>% as.data.frame(stringsAsFactors = F) %>% filter(Freq>0)
+colnames(dictSubject)[1] <- "description"
+
+dictSubject %>% 
+   filter(nchar(description)<150) %>% 
+   arrange(-Freq) %>% head(49) %>% 
+   ggplot(aes(x=reorder(description, Freq), y = log1p(Freq))) + 
+   geom_col(fill = "red", alpha = 0.7) +
+   geom_text(aes(x = description, label = Freq), hjust = -0.5, vjust = 0.4, size = 3)+
+   coord_flip()+
+   xlab("") + ylab("Log(Frequency + 1)") +
+   ggtitle("Cantidad de libros en español por tema")
 
 
+#----- Procesado de Author -----
+
+# Carga de diccionario
+G <- readRDS("Books Gutenberg Spanish.rds")
+
+# separación de items
+Author <- G$Author %>% 
+   sapply(function(x){strsplit(x, split = " -- ") %>% unlist()})
+
+# diccionario
+pasteSent <- function(x){
+   t <- c()
+   for (i in 1:length(x)) {
+      j = "; "
+      if(i == 1) {j = ""}
+      t <- paste(t, x[i], sep = j)
+   }
+   return(t)
+}
+dictAuthor <- data.frame(Author = c(1:length(Author)) %>% 
+                             sapply(function(x) {
+                                t <- c()
+                                if(length(Author[[x]])==0){t <- "Sin Información"}
+                                if(length(Author[[x]])>0){
+                                   for (i in 1:length(Author[[x]])) {
+                                      t <- c(t, (Author[[x]][i])[[1]])
+                                   }
+                                }
+                                return(t)
+                             }) %>% sapply(pasteSent),
+                          stringsAsFactors = F) %>% 
+   table() %>% as.data.frame(stringsAsFactors = F) %>% filter(Freq>0)
+colnames(dictAuthor)[1] <- "Author"
+
+dictAuthor %>% 
+   # filter(nchar(Author)<150) %>% 
+   arrange(-Freq) %>% head(49) %>% 
+   ggplot(aes(x=reorder(Author, Freq), y = log1p(Freq))) + 
+   geom_col(fill = "red", alpha = 0.7) +
+   geom_text(aes(x = Author, label = Freq), hjust = -0.5, vjust = 0.4, size = 3)+
+   coord_flip()+
+   xlab("") + ylab("Log(Frequency + 1)") +
+   ggtitle("Cantidad de libros en español por Autor")
 
 
 

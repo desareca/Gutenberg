@@ -1,11 +1,24 @@
+#-------------------------------------------------------------------------------------------------------------------#
+#-------------------------------------------------------------------------------------------------------------------#
+#--------------------------------------- SCRAPING A LA WEB WWW.GUTENBERG.ORG ---------------------------------------#
+#-------------------------------------------------------------------------------------------------------------------#
+#-------------------------------------------------------------------------------------------------------------------#
+
+# Este script selecciona y descarga los libros en espa√±ol de la p√°gina http://www.gutenberg.org, luego los limpia y
+# guarda nuevamente los archivos procesados.
+# Fecha de descarga de datos originales: 04-09-2020
+
+
+#----- Carga de librer√≠as -----
+
 library(rvest)
 library(tidyverse)
 library(tools)
 library(tm)
 
-# Descarga de libros en espaÒol de la p·gina http://www.gutenberg.org
-# Seleccion de libros (N∞ libro) en espaÒol
-# -------------------------------------------------------------------------------------------------------------
+
+#----- Selecci√≥n de libros (N¬∞ libro) en espa√±ol -----
+
 url <- "http://www.gutenberg.org/browse/languages/es"
 tmp <- read_html(url)
 tmp <- html_nodes(tmp, "li") %>% html_nodes("a")
@@ -13,9 +26,8 @@ gutEsp <- tmp %>% lapply(html_attr, name="href") %>% data.frame()
 gutEsp <- gutEsp %>% select(matches("ebooks")) %>% t()
 gutEsp <-gsub("/ebooks/", "", gutEsp) %>% as.numeric(gutEsp) %>% na.omit() %>% unique()
 
+#----- Scraping a las base de datos de los libros encontrados (698) -----
 
-# Scraping a las base de datos de loslibros encontrados (698)
-# -------------------------------------------------------------------------------------------------------------
 gutenbergScrap <- function(n=c(1:10), items=NULL, verbose=TRUE, save.RDS=TRUE, titleData="Books Gutenberg"){
    if(is.null(items)){items <- c("Author",
                                  "Title", 
@@ -65,8 +77,8 @@ G <- gutenbergScrap(n=gutEsp, titleData="Books Gutenberg Spanish")
 print(difftime(Sys.time(), t1, units = 'min')) # toma alrededor de 8 mins en 698 libros
 
 
-# descargar archivos
-# -------------------------------------------------------------------------------------------------------------
+#----- Descargar archivos -----
+
 gutenbergDown <- function(url, path = "books/"){
    books <- gsub("https://www.gutenberg.org/ebooks/","",url$url)
    books <- gsub("https://www.gutenberg.org/files/\\d{1,10}/","",books)
@@ -86,28 +98,27 @@ gutenbergDown(url = G %>% select(url), path = "books Spanish/")
 print(difftime(Sys.time(), t1, units = 'min')) # toma alrededor de 54 mins en 688 libros
 
 
+#----- Carga y limpieza de libros -----
 
-# carga de libros
-# -------------------------------------------------------------------------------------------------------------
-# Seleccionar los numeros de los ebooks descargados
+# Seleccionar los n√∫meros de los ebooks descargados
 listFiles <- list.files(path = "books Spanish")
 listFiles <- gsub("-0.txt", ".txt", listFiles)
 listFiles <- gsub(".txt", "", listFiles) %>% as.numeric()
 
-# filtrar los ebooks descargados y sÛlo en espaÒol
+# filtrar los ebooks descargados y s√≥lo en espa√±ol
 G <- readRDS("Books Gutenberg Spanish.rds")
 G <- G %>% filter(`EBook-No.` %in% listFiles) %>% filter(Language=="Spanish")
 
-# nombre se los archivos solo en espaÒol
+# nombre de los archivos solo en espa√±ol
 books <- gsub("https://www.gutenberg.org/ebooks/","",G$url)
 books <- gsub("https://www.gutenberg.org/files/\\d{1,10}/","",books)
 books <- gsub(".utf-8","",books)
 
-# carga de libros descargados en espaÒol
+# carga de libros descargados en espa√±ol
 books <- books[-602] #problemas al leer el corpus
 G <- G[-602,] #problemas al leer el corpus
 
-# creaciÛn corpus
+# creaci√≥n corpus
 corp <- VCorpus(VectorSource(c(1:length(books)) %>% 
                                 sapply(function(x){read_file(file = paste0("books Spanish/", books[x]))})),
                 readerControl = list(language = "es"))
@@ -123,8 +134,8 @@ t1 = Sys.time()
 corp <- corp %>% 
    # tm_map(removeWords, words = domWeb) %>% 
    tm_map(toSpace, pattern = c("[[:punct:]]"), y = TRUE) %>% 
-   tm_map(toSpace, pattern = c("ø")) %>% 
-   tm_map(toSpace, pattern = c("°")) %>% 
+   tm_map(toSpace, pattern = c("?")) %>% 
+   tm_map(toSpace, pattern = c("?")) %>% 
    tm_map(removeNumbers) %>% 
    tm_map(content_transformer(tolower)) %>% 
    tm_map(removeWords, words = c(letters[-c(1,15,21,25)], "\\n", "\\r")) %>% 
@@ -143,33 +154,32 @@ c(1:length(books)) %>% sapply(function(x){
 })
 
 
+#----- Carga de libros limpios -----
 
-# carga de libros limpios
-# -------------------------------------------------------------------------------------------------------------
 # Seleccionar los numeros de los ebooks descargados
 listFiles <- list.files(path = "books Spanish")
 listFiles <- gsub("-0.txt", ".txt", listFiles)
 listFiles <- gsub(".txt", "", listFiles) %>% as.numeric()
 
-# filtrar los ebooks descargados y sÛlo en espaÒol
+# filtrar los ebooks descargados y s√≥lo en espa√±ol
 G <- readRDS("Books Gutenberg Spanish.rds")
 G <- G %>% filter(`EBook-No.` %in% listFiles) %>% filter(Language=="Spanish")
 
-# nombre se los archivos solo en espaÒol
+# nombre se los archivos solo en espa√±ol
 books <- gsub("https://www.gutenberg.org/ebooks/","",G$url)
 books <- gsub("https://www.gutenberg.org/files/\\d{1,10}/","",books)
 books <- gsub(".utf-8","",books)
 
-# carga de libros descargados en espaÒol
-books <- books[-602] #problemas al leer el corpus
-G <- G[-602,] #problemas al leer el corpus
+# carga de libros descargados en espa√±ol
+books <- books[-602] # problemas al leer el corpus
+G <- G[-602,] # problemas al leer el corpus
 
 
-# creaciÛn corpus limpio
+# creaci√≥n corpus limpio
 read_txt <- function(path){
-   con <- file(path, open="rb") # Abrimos la conexiÛn
-   txt <- readLines(con)          # Leemos el contenido del archivo
-   close(con)
+   con <- file(path, open="rb") # Abre conexi√≥n
+   txt <- readLines(con)          # Lee el contenido del archivo
+   close(con) # Cierra conexi√≥n
    return(txt)
 }
 corpClean <- VCorpus(
@@ -178,12 +188,9 @@ corpClean <- VCorpus(
    readerControl = list(language = "es"))
 
 
+#----- Procesado de LoC class -----
 
-
-
-# procesado de LoC class
-# -------------------------------------------------------------------------------------------------------------
-# separaciÛn de items
+# separaci√≥n de items
 locClass <- G$`LoC Class` %>% 
    sapply(function(x){strsplit(x, split = " -- ") %>% unlist()})
 

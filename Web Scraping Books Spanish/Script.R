@@ -15,6 +15,7 @@ library(rvest)
 library(tidyverse)
 library(tools)
 library(tm)
+library(lubridate)
 setwd("Web Scraping Books Spanish/")
 
 #----- Selección de libros (N° libro) en español -----
@@ -188,7 +189,7 @@ corpClean <- VCorpus(
    readerControl = list(language = "es"))
 
 
-#----- Procesado de LoC class -----
+#----- Procesado de Metadatos ----- 
 
 # LoC class
 # Carga de diccionario
@@ -246,11 +247,15 @@ G %>% select(description) %>%
 
 
 #Author
+# Limpieza de textos
+G <- G %>% mutate(Author = Author %>% 
+                     gsub(pattern = "\\?", replacement = "") %>% 
+                     gsub(pattern = "\\(", replacement = "") %>% 
+                     gsub(pattern = "\\)", replacement = "")
+                  )
 # separación de items
 Author <- G$Author %>% 
    sapply(function(x){strsplit(x, split = " -- ") %>% unlist()})
-
-Author[[37]] %>% length() 
 
 t <- c()
 for (i in 1:length(Author)) {
@@ -260,35 +265,32 @@ for (i in 1:length(Author)) {
       }
    }
 }
-
-t %>% View()
-t %>% unique() %>% na.omit() %>% View()
-
-
-
-
-
-length(Author[32])
+t[is.na(t)] <- "Sin Información"
+t <- t %>% unique()
 
 # diccionario
-dictAuthor <- data.frame(Author = c(1:length(Author)) %>% 
-                            sapply(function(x) {
-                               t <- c()
-                               if(length(Author[[x]])==0){t <- "Sin Información"}
-                               if(length(Author[[x]])>0){
-                                  for (i in 1:length(Author[[x]])) {
-                                     t <- c(t, (Author[[x]][i])[[1]])
-                                  }
-                               }
-                               return(t)
-                            }) %>% sapply(pasteSent),
-                         stringsAsFactors = F) %>% 
-   table() %>% as.data.frame(stringsAsFactors = F) %>% filter(Freq>0)
-colnames(dictAuthor)[1] <- "Author"
+asignAuthor <- function(x){
+   x <- ifelse(x=="","Sin Información",x)
+   return(
+      x %>% 
+         sapply(function(y){strsplit(y, split = " -- ") %>% unlist()}) %>% 
+         sapply(function(y) {1*grepl(x=t, pattern = y, fixed = F)}) %>%
+         unlist() %>% rowSums() %>% t()
+      )
+   }
 
-dictAuthor %>% 
-   # filter(nchar(Author)<150) %>% 
-   arrange(-Freq) %>% head(49) %>% 
+dictAuthor <- c(1:dim(G)[1]) %>% sapply(function(x) asignAuthor(x = G$Author[x]))
+dictAuthor <- dictAuthor %>% t() %>% data.frame()
+colnames(dictAuthor) <- t
+
+G <- G %>% mutate(dictAuthor) %>% select(-Author)
+rm(Author, i, j)
+
+dictAuthorSum <- dictAuthor %>% colSums() %>% data.frame(row.names = t)
+colnames(dictAuthorSum) <- "Freq"
+dictAuthorSum <- dictAuthorSum %>% mutate(Author = row.names(dictAuthorSum))
+
+dictAuthorSum %>% head(50) %>% 
    ggplot(aes(x=reorder(Author, Freq), y = log1p(Freq))) + 
    geom_col(fill = "red", alpha = 0.7) +
    geom_text(aes(x = Author, label = Freq), hjust = -0.5, vjust = 0.4, size = 3)+
@@ -296,12 +298,30 @@ dictAuthor %>%
    xlab("") + ylab("Log(Frequency + 1)") +
    ggtitle("Cantidad de libros en español por Autor")
 
+rm(dictAuthor, dictAuthorSum, t)
 
 
+# Release Date
+G <- G %>% rename(Date = `Release Date`)
+G <- G %>% mutate(Date = Date %>% 
+                     gsub(pattern = ",", replacement = "") %>% 
+                     gsub(pattern = " ", replacement = "-") %>% 
+                     gsub(pattern = "Jan", replacement = "1") %>% 
+                     gsub(pattern = "Feb", replacement = "2") %>% 
+                     gsub(pattern = "Mar", replacement = "3") %>% 
+                     gsub(pattern = "Apr", replacement = "4") %>% 
+                     gsub(pattern = "May", replacement = "5") %>% 
+                     gsub(pattern = "Jun", replacement = "6") %>% 
+                     gsub(pattern = "Jul", replacement = "7") %>% 
+                     gsub(pattern = "Aug", replacement = "8") %>% 
+                     gsub(pattern = "Sep", replacement = "9") %>% 
+                     gsub(pattern = "Oct", replacement = "10") %>% 
+                     gsub(pattern = "Nov", replacement = "11") %>% 
+                     gsub(pattern = "Dec", replacement = "12") %>% 
+                     as.Date("%m-%d-%Y")
+                  )
 
 
-
-
-
+saveRDS(G, "Metadata Books Spanish.rds")
 
 

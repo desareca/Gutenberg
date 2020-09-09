@@ -190,12 +190,12 @@ corpClean <- VCorpus(
 
 #----- Procesado de LoC class -----
 
+# LoC class
 # Carga de diccionario
 G <- readRDS("Books Gutenberg Spanish.rds")
 
 # separación de items
-locClass <- G$`LoC Class` %>% 
-   sapply(function(x){strsplit(x, split = " -- ") %>% unlist()})
+locClass <- G$`LoC Class` %>% sapply(function(x){strsplit(x, split = " -- ") %>% unlist()})
 
 # diccionario
 pasteSent <- function(x){
@@ -207,7 +207,8 @@ pasteSent <- function(x){
    }
    return(t)
 }
-dictClass <- data.frame(symbol = c(1:length(locClass)) %>% 
+dictClass <- data.frame(nEbook = G$`EBook-No.`, 
+                        symbol = c(1:length(locClass)) %>% 
                            sapply(function(x) {
                               t <- c()
                               for (i in 1:length(locClass[[x]])) {
@@ -224,11 +225,18 @@ dictClass <- data.frame(symbol = c(1:length(locClass)) %>%
                               return(t)
                            }) %>% sapply(pasteSent),
                         stringsAsFactors = F) %>% 
-   table() %>% as.data.frame(stringsAsFactors = F) %>% filter(Freq>0)
+   mutate(class1 = sapply(symbol, function(x){strsplit(x, split = "; ")[[1]][1]}),
+          class2 = sapply(symbol, function(x){strsplit(x, split = "; ")[[1]][2]})) %>% 
+   select(-symbol) %>% 
+   mutate(class2 = ifelse(is.na(class2), "", class2))
 
-dictClass %>% 
-   # filter(symbol!="PQ") %>% 
-   arrange(-Freq) %>% head(49) %>% 
+# ajuste de los datos
+G <- G %>% mutate(dictClass, nBook = `EBook-No.`) %>% select(-`LoC Class`, -`EBook-No.`, -nEbook, -url) %>% select(c(10, 1:9))
+rm(dictClass, locClass)
+
+G %>% select(description) %>% 
+   table(dnn = c("description")) %>% as.data.frame(stringsAsFactors = F) %>% 
+   filter(Freq>0) %>% arrange(-Freq) %>% head(49) %>% 
    ggplot(aes(x=reorder(description, Freq), y = log1p(Freq))) + 
    geom_col(fill = "red", alpha = 0.7) +
    geom_text(aes(x = description, label = Freq), hjust = -0.5, vjust = 0.4, size = 3)+
@@ -237,79 +245,44 @@ dictClass %>%
    ggtitle("Cantidad de libros en español por categoría")
 
 
-#----- Procesado de Subject -----
-
-# Carga de diccionario
-G <- readRDS("Books Gutenberg Spanish.rds")
-
-# separación de items
-Subject <- G$Subject %>% 
-   sapply(function(x){strsplit(x, split = " -- ") %>% unlist()})
-
-# diccionario
-pasteSent <- function(x){
-   t <- c()
-   for (i in 1:length(x)) {
-      j = "; "
-      if(i == 1) {j = ""}
-      t <- paste(t, x[i], sep = j)
-   }
-   return(t)
-}
-dictSubject <- data.frame(description = c(1:length(Subject)) %>% 
-                             sapply(function(x) {
-                                t <- c()
-                                for (i in 1:length(Subject[[x]])) {
-                                   t <- c(t, (Subject[[x]][i])[[1]])
-                                   }
-                                return(t)
-                                }) %>% sapply(pasteSent),
-                          stringsAsFactors = F) %>% 
-   table() %>% as.data.frame(stringsAsFactors = F) %>% filter(Freq>0)
-colnames(dictSubject)[1] <- "description"
-
-dictSubject %>% 
-   filter(nchar(description)<150) %>% 
-   arrange(-Freq) %>% head(49) %>% 
-   ggplot(aes(x=reorder(description, Freq), y = log1p(Freq))) + 
-   geom_col(fill = "red", alpha = 0.7) +
-   geom_text(aes(x = description, label = Freq), hjust = -0.5, vjust = 0.4, size = 3)+
-   coord_flip()+
-   xlab("") + ylab("Log(Frequency + 1)") +
-   ggtitle("Cantidad de libros en español por tema")
-
-
-#----- Procesado de Author -----
-
-# Carga de diccionario
-G <- readRDS("Books Gutenberg Spanish.rds")
-
+#Author
 # separación de items
 Author <- G$Author %>% 
    sapply(function(x){strsplit(x, split = " -- ") %>% unlist()})
 
-# diccionario
-pasteSent <- function(x){
-   t <- c()
-   for (i in 1:length(x)) {
-      j = "; "
-      if(i == 1) {j = ""}
-      t <- paste(t, x[i], sep = j)
+Author[[37]] %>% length() 
+
+t <- c()
+for (i in 1:length(Author)) {
+   if(length(Author[i])>0){
+      for (j in 1:length(Author[[i]])) {
+         t <- c(t, Author[[i]][j])
+      }
    }
-   return(t)
 }
+
+t %>% View()
+t %>% unique() %>% na.omit() %>% View()
+
+
+
+
+
+length(Author[32])
+
+# diccionario
 dictAuthor <- data.frame(Author = c(1:length(Author)) %>% 
-                             sapply(function(x) {
-                                t <- c()
-                                if(length(Author[[x]])==0){t <- "Sin Información"}
-                                if(length(Author[[x]])>0){
-                                   for (i in 1:length(Author[[x]])) {
-                                      t <- c(t, (Author[[x]][i])[[1]])
-                                   }
-                                }
-                                return(t)
-                             }) %>% sapply(pasteSent),
-                          stringsAsFactors = F) %>% 
+                            sapply(function(x) {
+                               t <- c()
+                               if(length(Author[[x]])==0){t <- "Sin Información"}
+                               if(length(Author[[x]])>0){
+                                  for (i in 1:length(Author[[x]])) {
+                                     t <- c(t, (Author[[x]][i])[[1]])
+                                  }
+                               }
+                               return(t)
+                            }) %>% sapply(pasteSent),
+                         stringsAsFactors = F) %>% 
    table() %>% as.data.frame(stringsAsFactors = F) %>% filter(Freq>0)
 colnames(dictAuthor)[1] <- "Author"
 
@@ -322,6 +295,12 @@ dictAuthor %>%
    coord_flip()+
    xlab("") + ylab("Log(Frequency + 1)") +
    ggtitle("Cantidad de libros en español por Autor")
+
+
+
+
+
+
 
 
 

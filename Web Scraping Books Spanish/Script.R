@@ -233,18 +233,7 @@ dictClass <- data.frame(nEbook = G$`EBook-No.`,
 
 # ajuste de los datos
 G <- G %>% mutate(dictClass, nBook = `EBook-No.`) %>% select(-`LoC Class`, -`EBook-No.`, -nEbook, -url) %>% select(c(10, 1:9))
-rm(dictClass, locClass)
-
-G %>% select(description) %>% 
-   table(dnn = c("description")) %>% as.data.frame(stringsAsFactors = F) %>% 
-   filter(Freq>0) %>% arrange(-Freq) %>% head(49) %>% 
-   ggplot(aes(x=reorder(description, Freq), y = log1p(Freq))) + 
-   geom_col(fill = "red", alpha = 0.7) +
-   geom_text(aes(x = description, label = Freq), hjust = -0.5, vjust = 0.4, size = 3)+
-   coord_flip()+
-   xlab("") + ylab("Log(Frequency + 1)") +
-   ggtitle("Cantidad de libros en español por categoría")
-
+rm(dictClass, locClass, pasteSent)
 
 #Author
 # Limpieza de textos
@@ -284,22 +273,7 @@ dictAuthor <- dictAuthor %>% t() %>% data.frame()
 colnames(dictAuthor) <- t
 
 G <- G %>% mutate(dictAuthor) %>% select(-Author)
-rm(Author, i, j)
-
-dictAuthorSum <- dictAuthor %>% colSums() %>% data.frame(row.names = t)
-colnames(dictAuthorSum) <- "Freq"
-dictAuthorSum <- dictAuthorSum %>% mutate(Author = row.names(dictAuthorSum))
-
-dictAuthorSum %>% head(50) %>% 
-   ggplot(aes(x=reorder(Author, Freq), y = log1p(Freq))) + 
-   geom_col(fill = "red", alpha = 0.7) +
-   geom_text(aes(x = Author, label = Freq), hjust = -0.5, vjust = 0.4, size = 3)+
-   coord_flip()+
-   xlab("") + ylab("Log(Frequency + 1)") +
-   ggtitle("Cantidad de libros en español por Autor")
-
-rm(dictAuthor, dictAuthorSum, t)
-
+rm(Author, i, j, dictAuthor, t, asignAuthor)
 
 # Release Date
 G <- G %>% rename(Date = `Release Date`)
@@ -323,5 +297,88 @@ G <- G %>% mutate(Date = Date %>%
 
 
 saveRDS(G, "Metadata Books Spanish.rds")
+
+#----- Análisis de Metadatos -----
+G <- readRDS("Metadata Books Spanish.rds")
+
+# Language
+G %>% select(Language) %>% 
+   table(dnn = c("Language")) %>% as.data.frame(stringsAsFactors = F) %>% 
+   filter(Freq>0) %>% arrange(-Freq) %>% #head(49) %>% 
+   ggplot(aes(x=reorder(Language, Freq), y = log1p(Freq))) + 
+   geom_col(fill = "red", alpha = 0.7) +
+   geom_text(aes(x = Language, label = Freq), hjust = -0.5, vjust = 0.4, size = 3)+
+   coord_flip()+
+   xlab("") + ylab("Log(Frequency + 1)") +
+   ggtitle("Cantidad de libros por idioma")
+
+# Subject
+G %>% select(Subject) %>% 
+   table(dnn = c("Subject")) %>% as.data.frame(stringsAsFactors = F) %>% 
+   filter(Freq>0) %>% arrange(-Freq) %>% filter(nchar(Subject)<150) %>% head(49) %>% 
+   ggplot(aes(x=reorder(Subject, Freq), y = log1p(Freq))) + 
+   geom_col(fill = "red", alpha = 0.7) +
+   geom_text(aes(x = Subject, label = Freq), hjust = -0.5, vjust = 0.4, size = 3)+
+   coord_flip()+
+   xlab("") + ylab("Log(Subject + 1)") +
+   ggtitle("Cantidad de libros por tema")
+
+# Categoría
+G %>% select(Category) %>% 
+   table(dnn = c("Category")) %>% as.data.frame(stringsAsFactors = F) %>% 
+   filter(Freq>0) %>% arrange(-Freq) %>% 
+   ggplot(aes(x=reorder(Category, Freq), y = log1p(Freq))) + 
+   geom_col(fill = "red", alpha = 0.7) +
+   geom_text(aes(x = Category, label = Freq), hjust = -0.5, vjust = 0.4, size = 3)+
+   coord_flip()+
+   xlab("") + ylab("Log(Category + 1)") +
+   ggtitle("Cantidad de libros por categoría")
+
+
+# Clasificacion
+G %>% select(description) %>% 
+   table(dnn = c("description")) %>% as.data.frame(stringsAsFactors = F) %>% 
+   filter(Freq>0) %>% arrange(-Freq) %>% filter(nchar(description)<150) %>% head(49) %>% 
+   ggplot(aes(x=reorder(description, Freq), y = log1p(Freq))) + 
+   geom_col(fill = "red", alpha = 0.7) +
+   geom_text(aes(x = description, label = Freq), hjust = -0.5, vjust = 0.4, size = 3)+
+   coord_flip()+
+   xlab("") + ylab("Log(Clasificación + 1)") +
+   ggtitle("Cantidad de libros por clasificacion")
+
+
+# Autor
+data.frame(Freq = G %>% select(-c(1:9)) %>% t() %>% rowSums()) %>%
+   mutate(Author = colnames(G %>% select(-c(1:9)))) %>% 
+   arrange(-Freq) %>% select(Author, Freq) %>% head(49) %>% 
+   ggplot(aes(x=reorder(Author, Freq), y = log1p(Freq))) + 
+   geom_col(fill = "red", alpha = 0.7) +
+   geom_text(aes(x = Author, label = Freq), hjust = -0.5, vjust = 0.4, size = 3)+
+   coord_flip()+
+   xlab("") + ylab("Log(Author + 1)") +
+   ggtitle("Cantidad de libros por autor")
+
+# Date
+G %>% select(Date) %>% mutate(year = year(Date)) %>%
+   select(year) %>% 
+   table(dnn = c("year")) %>% as.data.frame(stringsAsFactors = F) %>% 
+   filter(Freq>0) %>% arrange(-Freq) %>% 
+   ggplot(aes(x=reorder(year, year), y = Freq)) + 
+   geom_col(fill = "red", alpha = 0.7) +
+   geom_text(aes(x = year, label = Freq), vjust = -0.5, hjust = 0.4, size = 3)+
+   xlab("") + ylab("year") +
+   ggtitle("Cantidad de libros por año")
+
+
+G %>% select(Date) %>% mutate(month = month(Date)) %>% select(month) %>% 
+   table(dnn = c("month")) %>% as.data.frame(stringsAsFactors = F) %>% 
+   mutate(month = as.integer(month)) %>% 
+   filter(Freq>0) %>% arrange(month) %>% mutate(month = month(month, label = T)) %>% 
+   ggplot(aes(x= month, y = Freq)) + 
+   geom_col(fill = "red", alpha = 0.7) +
+   geom_text(aes(x = month, label = Freq), vjust = -0.5, hjust = 0.4, size = 3)+
+   xlab("") + ylab("month") +
+   ggtitle("Cantidad de libros por mes")
+
 
 

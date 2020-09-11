@@ -16,6 +16,7 @@ library(tidyverse)
 library(tools)
 library(tm)
 library(lubridate)
+library(text2vec)
 setwd("Web Scraping Books Spanish/")
 
 #----- Selección de libros (N° libro) en español -----
@@ -379,6 +380,64 @@ G %>% select(Date) %>% mutate(month = month(Date)) %>% select(month) %>%
    geom_text(aes(x = month, label = Freq), vjust = -0.5, hjust = 0.4, size = 3)+
    xlab("") + ylab("month") +
    ggtitle("Cantidad de libros por mes")
+
+
+
+
+#----- Análisis de Libros -----
+source("textEnglish.R")
+bookData <- data.frame(file = list.files("Clean Books Spanish"), stringsAsFactors = FALSE) %>% 
+   mutate(nEbook = file %>% 
+             gsub(pattern = ".txt", replacement = "") %>% 
+             gsub(pattern = "-0", replacement = "") %>% as.numeric()) %>% 
+   select(nEbook, file) %>% arrange(nEbook)
+
+G <- readRDS("Metadata Books Spanish.rds") %>% select(c(1,2,4,6:9))
+G <- G %>% 
+   mutate(nBook = as.numeric(nBook)) %>% arrange(nBook) %>% 
+   filter(bookData$nEbook %>% 
+             sapply(function(x) G$nBook==x) %>% 
+             rowSums() %>% 
+             sapply(function(x) x==1)) 
+
+
+G <- cbind(nBook = G$nBook, file = bookData$file, G %>% select(-1)) %>%
+   mutate(file = as.character(file))
+
+Id <- select(G, class1)=="E011"
+
+text <- c(1:dim(G %>% filter(Id))[1]) %>% 
+   sapply(function(x){read_file(file = paste0("Clean Books Spanish/", G$file[x]))})
+
+
+cleanText <- function(text){
+   text = iconv(text, to = "latin1")
+   text = removeWords(text, c(stopwords("spanish"), stopwords("english"), textEnglish))
+   text = stripWhitespace(text)
+   return(text)
+}
+
+
+
+it_train = itoken(text[1:2], 
+                  preprocessor = cleanText, 
+                  tokenizer = word_tokenizer,
+                  n_chunks = 1)
+
+vocab = create_vocabulary(it_train, ngram = c(1L, 1L))
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

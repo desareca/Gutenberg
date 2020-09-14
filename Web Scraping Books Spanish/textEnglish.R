@@ -17,39 +17,8 @@ textEnglish = tolower(textEnglish) # transforma a minuscula
 textEnglish = stringr::str_replace_all(textEnglish," $", "") # elimina espacios finales
 textEnglish = tm::stripWhitespace(textEnglish) # quita espacios en blanco repetidos
 textEnglish = stringr::str_replace_all(textEnglish,"^ ", "") # elimina espacios iniciales
-textEnglish <- textEnglish %>% words() %>% unique()
-textEnglish <- textEnglish[-c(which(textEnglish=="online"),
-                              which(textEnglish=="a"),
-                              which(textEnglish=="e"),
-                              which(textEnglish=="archive"),
-                              which(textEnglish=="individual"),
-                              which(textEnglish=="as"),
-                              which(textEnglish=="no"),
-                              which(textEnglish=="status"),
-                              which(textEnglish=="active"),
-                              which(textEnglish=="use"),
-                              which(textEnglish=="at"),
-                              which(textEnglish=="re"),
-                              which(textEnglish=="set"),
-                              which(textEnglish=="version"),
-                              which(textEnglish=="web"),
-                              which(textEnglish=="original"),
-                              which(textEnglish=="derive"),
-                              which(textEnglish=="he"),
-                              which(textEnglish=="has"),
-                              which(textEnglish=="prepare"),
-                              which(textEnglish=="considerable"),
-                              which(textEnglish=="transcribe"),
-                              which(textEnglish=="virus"),
-                              which(textEnglish=="legal"),
-                              which(textEnglish=="actual"),
-                              which(textEnglish=="exclusion"),
-                              which(textEnglish=="procision"),
-                              which(textEnglish=="come"),
-                              which(textEnglish=="u"),
-                              which(textEnglish=="director"),
-                              which(textEnglish=="determine"),
-                              which(textEnglish=="particular"),
-                              which(textEnglish=="general"),
-                              which(textEnglish=="produce"),
-                              which(textEnglish=="subscribe"))]
+# filtra las palabras que se repiten más de 5 veces
+textEnglish <- textEnglish %>% words() %>% table()
+textEnglish <- textEnglish[order(textEnglish, decreasing = TRUE)]
+textEnglish <- textEnglish %>% head(10)
+textEnglish <- row.names(textEnglish)

@@ -125,28 +125,28 @@ corp <- VCorpus(VectorSource(c(1:length(books)) %>%
                                 sapply(function(x){read_file(file = paste0("books Spanish/", books[x]))})),
                 readerControl = list(language = "es"))
 
-
+# carga de palabras en ingles que aparecen en los libros
+source("textEnglish.R")
 # crea el transformador de contenido de toSpace
-toSpace <- content_transformer(function(x, pattern, y=F) {return(gsub(pattern, " ", x, perl = y))})
+toSpace <- content_transformer(function(x, pattern, y=F) {return(gsub(pattern, "", x, perl = y))})
 # dominios web de paises
 # source("domainWeb.R")
 
 # limpieza (se dejan las stopwords en esta etapa)
 t1 = Sys.time()
 corp <- corp %>% 
-   # tm_map(removeWords, words = domWeb) %>% 
    tm_map(toSpace, pattern = c("[[:punct:]]"), y = TRUE) %>% 
    tm_map(toSpace, pattern = c("?")) %>% 
-   tm_map(toSpace, pattern = c("?")) %>% 
+   tm_map(toSpace, pattern = c("!")) %>% 
    tm_map(removeNumbers) %>% 
    tm_map(content_transformer(tolower)) %>% 
-   tm_map(removeWords, words = c(letters[-c(1,15,21,25)], "\\n", "\\r")) %>% 
    tm_map(content_transformer(str_replace_all), pattern = "\\p{quotation mark}", replacement = " ") %>% 
-   # tm_map(removeWords, stopwords("spanish")) %>% 
-   tm_map(removeWords, words = c(" $", "^ ")) %>% 
+   tm_map(removeWords, words = c("\\n", "\\r")) %>%
+   tm_map(removeWords, words = textEnglish) %>%
    tm_map(stripWhitespace)
-print(difftime(Sys.time(), t1, units = 'min')) # toma alrededor 2 mins 20 libros
-# aprox deberia tomar 60 mins 662 libros// 66 min final
+t2 = Sys.time()
+print(difftime(t2, t1, units = 'min')) # toma alrededor 1.13 mins 10 libros
+# aprox deberia tomar 75 mins 662 libros// 88 min final
 
 pathClean <- "Clean Books Spanish/"
 if(!dir.exists(pathClean)) dir.create(path = pathClean)
@@ -154,6 +154,7 @@ if(!dir.exists(pathClean)) dir.create(path = pathClean)
 c(1:length(books)) %>% sapply(function(x){
    corp[[x]]["content"] %>% unlist() %>% write(file = paste0(pathClean, books[x]))
 })
+print(difftime(t2, t1, units = 'min')) 
 
 
 #----- Carga de libros limpios -----
@@ -381,57 +382,48 @@ G %>% select(Date) %>% mutate(month = month(Date)) %>% select(month) %>%
    xlab("") + ylab("month") +
    ggtitle("Cantidad de libros por mes")
 
+## los autores tienen la fecha de vida y muerte en la mayoria de los casos
+## se utiliza esto para establecer un periodo de tiempo de escritura del libro
+G2 <- readRDS("Books Gutenberg Spanish.rds") # metadatos raw
 
+#Author
+# Limpieza de textos
+G2 <- G2 %>% mutate(Author = Author %>% 
+                     gsub(pattern = "\\?", replacement = "") %>% 
+                     gsub(pattern = "\\(", replacement = "") %>% 
+                     gsub(pattern = "\\)", replacement = "")
+                    )
+# separación de items
+Author <- G2$Author %>% 
+   sapply(function(x){strsplit(x, split = " -- ") %>% unlist()})
 
+t <- c()
+for (i in 1:length(Author)) {
+   if(length(Author[i])>0){
+      for (j in 1:length(Author[[i]])) {
+         t <- c(t, Author[[i]][j])
+      }
+   }
+}
+t[is.na(t)] <- "Sin Información"
+t <- t %>% unique()
 
-#----- Análisis de Libros -----
-source("textEnglish.R")
-bookData <- data.frame(file = list.files("Clean Books Spanish"), stringsAsFactors = FALSE) %>% 
-   mutate(nEbook = file %>% 
-             gsub(pattern = ".txt", replacement = "") %>% 
-             gsub(pattern = "-0", replacement = "") %>% as.numeric()) %>% 
-   select(nEbook, file) %>% arrange(nEbook)
+Author <- data.frame(autor = t, stringsAsFactors = F)
 
-G <- readRDS("Metadata Books Spanish.rds") %>% select(c(1,2,4,6:9))
-G <- G %>% 
-   mutate(nBook = as.numeric(nBook)) %>% arrange(nBook) %>% 
-   filter(bookData$nEbook %>% 
-             sapply(function(x) G$nBook==x) %>% 
-             rowSums() %>% 
-             sapply(function(x) x==1)) 
-
-
-G <- cbind(nBook = G$nBook, file = bookData$file, G %>% select(-1)) %>%
-   mutate(file = as.character(file))
-
-Id <- select(G, class1)=="E011"
-
-text <- c(1:dim(G %>% filter(Id))[1]) %>% 
-   sapply(function(x){read_file(file = paste0("Clean Books Spanish/", G$file[x]))})
-
-
-cleanText <- function(text){
-   text = iconv(text, to = "latin1")
-   text = removeWords(text, c(stopwords("spanish"), stopwords("english"), textEnglish))
-   text = stripWhitespace(text)
-   return(text)
+str_year <- function(x, iloc = 1){
+   if(is.na(str_locate(x , "\\d{4}-\\d{4}")[1])){y <- c(NA, NA)}
+   if(!is.na(str_locate(x , "\\d{4}-\\d{4}")[1])){
+      y <- str_sub(x, str_locate(x , "\\d{4}-\\d{4}")[1], str_locate(x , "\\d{4}-\\d{4}")[2]) %>%
+         str_split("-") %>% unlist() %>% as.numeric()
+   }
+   return(y[iloc])
 }
 
+Author <- Author %>% mutate(year_start = autor %>% sapply(str_year, iloc = 1),
+                            year_end = autor %>% sapply(str_year, iloc = 2))
 
 
-it_train = itoken(text[1:2], 
-                  preprocessor = cleanText, 
-                  tokenizer = word_tokenizer,
-                  n_chunks = 1)
-
-vocab = create_vocabulary(it_train, ngram = c(1L, 1L))
-
-
-
-
-
-
-
+Author %>% filter(is.na(year_start)) %>% View()
 
 
 
